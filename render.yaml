@@ -1,0 +1,29 @@
+databases:
+  - name: shopzone-db
+    plan: free
+    databaseName: shopzone
+    user: shopzone
+
+services:
+  # E-commerce Backend API
+  - type: web
+    name: shopzone-api
+    runtime: python
+    plan: free
+    buildCommand: cd ecommerce/backend && pip install -r requirements.txt
+    startCommand: cd ecommerce/backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: shopzone-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 1440
+      - key: RETURN_ENGINE_URL
+        value: ""
+      - key: RETURN_ENGINE_API_KEY
+        value: ""
