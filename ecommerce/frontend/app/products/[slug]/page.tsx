@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { api } from '@/lib/api';
 import { useStore } from '@/lib/store';
-import { Star, Heart, ShoppingCart, Truck, RotateCcw, Shield, Minus, Plus } from 'lucide-react';
+import { Star, Heart, ShoppingCart, Truck, RotateCcw, Shield, Minus, Plus, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
@@ -17,6 +17,10 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, title: '', content: '' });
+  const [submittingReview, setSubmittingReview] = useState(false);
   const { addToCart, isAuthenticated } = useStore();
 
   useEffect(() => {
@@ -52,6 +56,60 @@ export default function ProductDetailPage() {
       toast.success('Added to cart!');
     } catch (error: any) {
       toast.error(error.message || 'Failed to add to cart');
+    }
+  };
+
+  const handleWishlist = async () => {
+    if (!isAuthenticated) {
+      toast.error('Please login to add to wishlist');
+      return;
+    }
+
+    try {
+      if (isWishlisted) {
+        await api.removeFromWishlist(product.id);
+        setIsWishlisted(false);
+        toast.success('Removed from wishlist');
+      } else {
+        await api.addToWishlist(product.id);
+        setIsWishlisted(true);
+        toast.success('Added to wishlist!');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update wishlist');
+    }
+  };
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      toast.error('Please login to submit a review');
+      return;
+    }
+
+    setSubmittingReview(true);
+    try {
+      await api.createReview({
+        product_id: product.id,
+        rating: reviewForm.rating,
+        title: reviewForm.title || undefined,
+        content: reviewForm.content || undefined,
+      });
+      toast.success('Review submitted successfully!');
+      setShowReviewForm(false);
+      setReviewForm({ rating: 5, title: '', content: '' });
+
+      // Reload reviews
+      const [reviewsData, summaryData] = await Promise.all([
+        api.getProductReviews(product.id),
+        api.getReviewSummary(product.id),
+      ]);
+      setReviews(reviewsData);
+      setReviewSummary(summaryData);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to submit review');
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -204,8 +262,11 @@ export default function ProductDetailPage() {
                 Add to Cart
               </button>
 
-              <button className="p-3 border rounded-lg hover:bg-gray-100">
-                <Heart className="w-5 h-5" />
+              <button
+                onClick={handleWishlist}
+                className={`p-3 border rounded-lg hover:bg-gray-100 ${isWishlisted ? 'border-red-500' : ''}`}
+              >
+                <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-red-500 text-red-500' : ''}`} />
               </button>
             </div>
           )}
@@ -214,7 +275,7 @@ export default function ProductDetailPage() {
           <div className="border-t pt-6 space-y-3">
             <div className="flex items-center gap-3 text-sm">
               <Truck className="w-5 h-5 text-primary-600" />
-              <span>Free delivery on orders over Rs. 500</span>
+              <span>Free delivery on orders over Rs. 999</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <RotateCcw className="w-5 h-5 text-primary-600" />
@@ -269,7 +330,84 @@ export default function ProductDetailPage() {
 
       {/* Reviews Section */}
       <div className="mt-12 border-t pt-8">
-        <h2 className="text-xl font-bold mb-6">Customer Reviews</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold">Customer Reviews</h2>
+          {isAuthenticated && !showReviewForm && (
+            <button
+              onClick={() => setShowReviewForm(true)}
+              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            >
+              Write a Review
+            </button>
+          )}
+        </div>
+
+        {/* Review Form */}
+        {showReviewForm && (
+          <div className="bg-gray-50 rounded-lg p-6 mb-6">
+            <h3 className="font-semibold mb-4">Write Your Review</h3>
+            <form onSubmit={handleSubmitReview} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Rating</label>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewForm({ ...reviewForm, rating: star })}
+                      className="p-1"
+                    >
+                      <Star
+                        className={`w-8 h-8 ${
+                          star <= reviewForm.rating
+                            ? 'fill-yellow-400 text-yellow-400'
+                            : 'text-gray-300'
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Title (optional)</label>
+                <input
+                  type="text"
+                  value={reviewForm.title}
+                  onChange={(e) => setReviewForm({ ...reviewForm, title: e.target.value })}
+                  placeholder="Summarize your review"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Review (optional)</label>
+                <textarea
+                  value={reviewForm.content}
+                  onChange={(e) => setReviewForm({ ...reviewForm, content: e.target.value })}
+                  placeholder="Share your experience with this product"
+                  rows={4}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  disabled={submittingReview}
+                  className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  {submittingReview ? 'Submitting...' : 'Submit Review'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowReviewForm(false)}
+                  className="px-6 py-2 border rounded-lg hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
         {reviewSummary && reviewSummary.total_reviews > 0 ? (
           <div className="grid md:grid-cols-3 gap-8">

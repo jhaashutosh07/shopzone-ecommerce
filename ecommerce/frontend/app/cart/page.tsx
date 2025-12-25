@@ -136,14 +136,14 @@ export default function CartPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Shipping</span>
-                <span className="text-green-600">
-                  {cart.subtotal >= 500 ? 'FREE' : 'Rs. 40'}
+                <span className={cart.subtotal >= 999 ? 'text-green-600' : ''}>
+                  {cart.subtotal >= 999 ? 'FREE' : 'Rs. 49'}
                 </span>
               </div>
               <hr />
               <div className="flex justify-between text-lg font-bold">
                 <span>Total</span>
-                <span>Rs. {(cart.total + (cart.subtotal < 500 ? 40 : 0)).toLocaleString()}</span>
+                <span>Rs. {(cart.total + (cart.subtotal < 999 ? 49 : 0)).toLocaleString()}</span>
               </div>
             </div>
 

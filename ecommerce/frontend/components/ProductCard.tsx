@@ -4,7 +4,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Star, Heart, ShoppingCart } from 'lucide-react';
 import { useStore } from '@/lib/store';
+import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
+import { useState } from 'react';
 
 interface Product {
   id: string;
@@ -21,6 +23,7 @@ interface Product {
 
 export default function ProductCard({ product }: { product: Product }) {
   const { addToCart, isAuthenticated } = useStore();
+  const [isWishlisted, setIsWishlisted] = useState(false);
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -36,6 +39,30 @@ export default function ProductCard({ product }: { product: Product }) {
       toast.success('Added to cart!');
     } catch (error: any) {
       toast.error(error.message || 'Failed to add to cart');
+    }
+  };
+
+  const handleWishlist = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!isAuthenticated) {
+      toast.error('Please login to add to wishlist');
+      return;
+    }
+
+    try {
+      if (isWishlisted) {
+        await api.removeFromWishlist(product.id);
+        setIsWishlisted(false);
+        toast.success('Removed from wishlist');
+      } else {
+        await api.addToWishlist(product.id);
+        setIsWishlisted(true);
+        toast.success('Added to wishlist!');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update wishlist');
     }
   };
 
@@ -61,14 +88,10 @@ export default function ProductCard({ product }: { product: Product }) {
             </div>
           )}
           <button
-            className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              toast('Added to wishlist!');
-            }}
+            className={`absolute top-2 right-2 p-2 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity ${isWishlisted ? 'opacity-100' : ''}`}
+            onClick={handleWishlist}
           >
-            <Heart className="w-4 h-4 text-gray-600" />
+            <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
           </button>
         </div>
 

@@ -24,7 +24,7 @@ export default function Header() {
       {/* Top bar */}
       <div className="bg-primary-600 text-white text-sm py-1">
         <div className="container mx-auto px-4 text-center">
-          Free shipping on orders over Rs. 500 | Easy 30-day returns
+          Free shipping on orders over Rs. 999 | Easy 7-day returns
         </div>
       </div>
 
@@ -175,8 +175,8 @@ export default function Header() {
               </Link>
             </li>
             <li>
-              <Link href="/products/deals" className="text-red-600 font-medium whitespace-nowrap">
-                Deals
+              <Link href="/products" className="text-red-600 font-medium whitespace-nowrap">
+                All Products
               </Link>
             </li>
           </ul>

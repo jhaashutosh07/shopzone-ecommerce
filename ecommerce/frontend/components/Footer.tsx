@@ -19,7 +19,7 @@ export default function Footer() {
             <h4 className="text-white font-semibold mb-4">Quick Links</h4>
             <ul className="space-y-2 text-sm">
               <li><Link href="/products" className="hover:text-white">All Products</Link></li>
-              <li><Link href="/products/deals" className="hover:text-white">Today's Deals</Link></li>
+              <li><Link href="/products" className="hover:text-white">New Arrivals</Link></li>
               <li><Link href="/products?category=clothing" className="hover:text-white">Clothing</Link></li>
               <li><Link href="/products?category=electronics" className="hover:text-white">Electronics</Link></li>
             </ul>
@@ -49,7 +49,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm">
-          <p>&copy; 2024 ShopZone. All rights reserved.</p>
+          <p>&copy; 2025 ShopZone. All rights reserved.</p>
           <p className="mt-2 text-gray-500">
             Powered by Return Policy Engine for intelligent return management
           </p>

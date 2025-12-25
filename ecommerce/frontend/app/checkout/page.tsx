@@ -97,7 +97,7 @@ export default function CheckoutPage() {
     );
   }
 
-  const shipping = cart.subtotal >= 500 ? 0 : 40;
+  const shipping = cart.subtotal >= 999 ? 0 : 49;
   const total = cart.total + shipping;
 
   return (
