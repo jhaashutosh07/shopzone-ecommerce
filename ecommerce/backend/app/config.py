@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydantic import field_validator
 from functools import lru_cache
 
 
@@ -18,6 +19,14 @@ class Settings(BaseSettings):
     # App settings
     app_name: str = "ShopZone E-commerce"
     api_prefix: str = "/api/v1"
+
+    @field_validator('database_url', mode='before')
+    @classmethod
+    def fix_postgres_url(cls, v: str) -> str:
+        # Render uses postgres:// but SQLAlchemy needs postgresql://
+        if v and v.startswith('postgres://'):
+            return v.replace('postgres://', 'postgresql://', 1)
+        return v
 
     class Config:
         env_file = ".env"
