@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+.env
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# ML models (large files)
+*.joblib
+*.pkl
+ml/models/
+
+# Environment files
+.env
+.env.local
+.env*.local
+
+# Database
+*.db
+*.sqlite3
+
+# Vercel
+.vercel
+
+# Claude
+.claude/
+
+# Docker volumes
+postgres_data/
