@@ -20,6 +20,7 @@ interface CartItem {
   product_name: string;
   product_image: string;
   product_in_stock: boolean;
+  product_stock_quantity: number;
 }
 
 interface Cart {

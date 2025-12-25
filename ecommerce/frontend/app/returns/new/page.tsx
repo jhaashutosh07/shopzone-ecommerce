@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
@@ -49,7 +51,7 @@ export default function NewReturnPage() {
 
     async function loadOrder() {
       try {
-        const data = await api.getOrder(orderId);
+        const data = await api.getOrder(orderId!);
         setOrder(data);
 
         if (itemId) {
