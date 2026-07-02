@@ -10,6 +10,20 @@ with blanket policies that punish honest customers. This project answers with
 per-request decisions: a 48-order loyal customer gets instant approval; a 12-day-old
 account with 5 returns in 8 orders gets auto-denied — and both can see exactly why.
 
+## Live demo
+
+| | URL | Login |
+|---|-----|-------|
+| 🛒 Storefront | https://shopzone-store.vercel.app | `demo.trusted@shopzone.com` or `demo.risky@shopzone.com` / `demo1234` |
+| 📊 Merchant dashboard | https://shopzone-dashboard.vercel.app | `demo-merchant@shopzone.com` / `demo1234` |
+| 🛡 Engine API docs | https://ashutosh2002-shopzone-rpe.hf.space/docs | API key auth |
+| 🧾 Store API docs | https://ashutosh2002-shopzone-api.hf.space/docs | JWT auth |
+
+Backends run on Hugging Face Spaces (free tier): the first request after idle can
+take ~1 min while the Space wakes and the engine retrains its model. Data is
+ephemeral there — the system re-provisions itself (model, demo merchant, seeded
+store) on every restart, which is itself part of the demo.
+
 ## One-command demo
 
 ```bash
