@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     # App settings
     app_name: str = "ShopZone E-commerce"
     api_prefix: str = "/api/v1"
+    auto_seed: bool = False  # seed demo catalog + accounts on startup
 
     @field_validator('database_url', mode='before')
     @classmethod

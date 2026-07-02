@@ -160,7 +160,7 @@ BUYER_PROFILES = {
         "return_rate_range": (0.25, 0.50),
         "review_score_range": (2.0, 3.5),
         "account_age_range": (30, 365),
-        "fraud_likelihood": 0.25,
+        "fraud_likelihood": 0.45,
     },
     "potential_fraudster": {
         "weight": 0.05,
@@ -168,7 +168,7 @@ BUYER_PROFILES = {
         "return_rate_range": (0.40, 0.80),
         "review_score_range": (1.0, 2.5),
         "account_age_range": (1, 60),
-        "fraud_likelihood": 0.60,
+        "fraud_likelihood": 0.75,
     },
 }
 
@@ -252,23 +252,44 @@ def generate_return_request(
     product: Dict,
     is_fraud: bool = False
 ) -> Dict:
-    """Generate a return request."""
+    """Generate a return request.
+
+    Fraud and legitimate behavior deliberately OVERLAP: fraud skews toward
+    deadline-edge or instant returns and vague reasons, but most fraudulent
+    requests look timing-wise normal (and some honest customers return late).
+    Without this overlap the model would just memorize one feature.
+    """
     # Days since order
     if is_fraud:
-        # Fraudsters often return late or very quickly
-        if random.random() < 0.5:
+        roll = random.random()
+        if roll < 0.25:
             days_since_order = random.randint(25, 45)  # Near/past deadline
+        elif roll < 0.40:
+            days_since_order = random.randint(1, 3)  # Instant wardrobing return
         else:
-            days_since_order = random.randint(1, 3)  # Very quick return
+            days_since_order = random.randint(3, 25)  # Looks normal
     else:
-        days_since_order = random.randint(3, 25)
+        roll = random.random()
+        if roll < 0.10:
+            days_since_order = random.randint(25, 40)  # Honest but late
+        elif roll < 0.25:
+            days_since_order = random.randint(1, 3)  # Quick legitimate return
+        else:
+            days_since_order = random.randint(3, 25)
 
     # Return reason
     if is_fraud:
-        # Fraudsters use vague reasons
-        reason = random.choice(["changed_mind", "not_as_described", "other"])
+        # Fraudsters mostly use vague reasons, but some claim defects
+        if random.random() < 0.75:
+            reason = random.choice(["changed_mind", "not_as_described", "other"])
+        else:
+            reason = random.choice(product["common_reasons"])
     else:
-        reason = random.choice(product["common_reasons"])
+        # Honest customers occasionally just change their mind too
+        if random.random() < 0.15:
+            reason = random.choice(["changed_mind", "other"])
+        else:
+            reason = random.choice(product["common_reasons"])
 
     # Request timing
     hour = random.randint(0, 23)
@@ -298,7 +319,9 @@ def generate_training_sample(platform: str = "mixed") -> Tuple[Dict, int]:
     # Higher price = higher fraud attempt probability
     price_factor = min(product["price"] / 10000, 1.0) * 0.1
 
-    fraud_probability = base_fraud_prob * 0.5 + category_fraud_prob * 0.3 + price_factor * 0.2
+    # Buyer history dominates: return abuse is primarily a buyer trait,
+    # with category and price as secondary risk factors
+    fraud_probability = base_fraud_prob * 0.7 + category_fraud_prob * 0.2 + price_factor * 0.1
     is_fraud = random.random() < fraud_probability
 
     request = generate_return_request(buyer, product, is_fraud)
@@ -331,6 +354,12 @@ def generate_training_sample(platform: str = "mixed") -> Tuple[Dict, int]:
 
     # Label: 1 = eligible (legitimate return), 0 = not eligible (fraud/abuse)
     label = 0 if is_fraud else 1
+
+    # Real-world ground truth is noisy: some fraud slips through review and
+    # some legitimate returns get wrongly denied. ~4% label noise keeps the
+    # model (and its reported metrics) honest.
+    if random.random() < 0.04:
+        label = 1 - label
 
     return features, label
 

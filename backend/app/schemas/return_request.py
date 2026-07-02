@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -24,6 +24,9 @@ class ReturnRequestUpdate(BaseModel):
 
 
 class ReturnRequestResponse(BaseModel):
+    # model_version collides with pydantic's protected "model_" namespace
+    model_config = ConfigDict(protected_namespaces=(), from_attributes=True)
+
     id: str
     merchant_id: str
     buyer_id: str
@@ -36,16 +39,15 @@ class ReturnRequestResponse(BaseModel):
     reason_details: Optional[str]
     eligibility_score: Optional[float]
     risk_level: Optional[str]
-    risk_flags: Optional[List[str]]
+    risk_flags: Optional[List[dict]]
     confidence: Optional[float]
+    explanation: Optional[List[dict]] = None
+    model_version: Optional[int] = None
     decision: ReturnDecision
     decided_at: Optional[datetime]
     decided_by: Optional[str]
     days_since_order: int
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class ReturnRequestListResponse(BaseModel):

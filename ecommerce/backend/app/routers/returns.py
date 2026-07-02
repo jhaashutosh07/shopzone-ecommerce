@@ -110,6 +110,11 @@ async def create_return_request(
     db.commit()
     db.refresh(return_request)
 
+    # Push current buyer/product stats to the engine BEFORE scoring so the
+    # decision uses real history instead of a cold-start profile
+    await return_engine_client.sync_buyer(current_user)
+    await return_engine_client.sync_product(product)
+
     # Call Return Policy Engine for scoring
     try:
         score_result = await return_engine_client.get_return_score(
@@ -126,6 +131,7 @@ async def create_return_request(
             return_request.risk_flags = json.dumps(score_result.get("risk_flags", []))
             return_request.engine_recommendation = score_result.get("recommendation")
             return_request.engine_confidence = score_result.get("confidence")
+            return_request.engine_explanation = json.dumps(score_result.get("explanation", []))
 
             # Auto-decision based on recommendation
             recommendation = score_result.get("recommendation")
@@ -150,9 +156,6 @@ async def create_return_request(
         # Log error but don't fail the return request
         print(f"Return Policy Engine error: {e}")
 
-    # Sync buyer data to Return Policy Engine
-    await return_engine_client.sync_buyer(current_user)
-
     return ReturnRequestResponse(
         id=return_request.id,
         return_number=return_request.return_number,
@@ -167,6 +170,7 @@ async def create_return_request(
         risk_flags=return_request.risk_flags,
         engine_recommendation=return_request.engine_recommendation,
         engine_confidence=return_request.engine_confidence,
+        engine_explanation=return_request.engine_explanation,
         decision=return_request.decision,
         decided_by=return_request.decided_by,
         decision_notes=return_request.decision_notes,
@@ -266,6 +270,7 @@ def get_return(
         risk_flags=return_request.risk_flags,
         engine_recommendation=return_request.engine_recommendation,
         engine_confidence=return_request.engine_confidence,
+        engine_explanation=return_request.engine_explanation,
         decision=return_request.decision,
         decided_by=return_request.decided_by,
         decision_notes=return_request.decision_notes,

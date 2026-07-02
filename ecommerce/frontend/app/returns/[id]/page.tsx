@@ -87,6 +87,14 @@ export default function ReturnDetailPage() {
   const riskFlags = returnRequest.risk_flags
     ? JSON.parse(returnRequest.risk_flags)
     : [];
+  let explanation: any[] = [];
+  try {
+    explanation = returnRequest.engine_explanation
+      ? JSON.parse(returnRequest.engine_explanation)
+      : [];
+  } catch {
+    explanation = [];
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -243,6 +251,38 @@ export default function ReturnDetailPage() {
                 <p className="text-xs text-gray-500">Confidence</p>
               </div>
             </div>
+
+            {/* Why this decision */}
+            {explanation.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium mb-2">Why this decision</h3>
+                <div className="space-y-1.5">
+                  {explanation.map((c: any, index: number) => {
+                    const positive = c.direction === 'positive';
+                    const width = Math.min(Math.abs(c.contribution) * 2, 100);
+                    return (
+                      <div key={index} className="flex items-center text-sm">
+                        <div className="w-44 truncate text-gray-700" title={`${c.label}: ${c.value}`}>
+                          {c.label}
+                        </div>
+                        <div className="flex-1 mx-2 h-3 bg-gray-100 rounded overflow-hidden">
+                          <div
+                            className={`h-full ${positive ? 'bg-green-400' : 'bg-red-400'}`}
+                            style={{ width: `${width}%` }}
+                          />
+                        </div>
+                        <div className={`w-14 text-right font-medium ${positive ? 'text-green-600' : 'text-red-600'}`}>
+                          {positive ? '+' : ''}{Number(c.contribution).toFixed(1)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  How each factor influenced your return eligibility score.
+                </p>
+              </div>
+            )}
 
             {/* Risk Flags */}
             {riskFlags.length > 0 && (

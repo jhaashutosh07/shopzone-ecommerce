@@ -1,244 +1,211 @@
-# Dynamic Return Policy Engine
+# ShopZone — E-commerce Platform with an Explainable ML Return-Fraud Engine
 
-An ML-powered return eligibility scoring system for e-commerce merchants. This system helps merchants reduce return fraud while maintaining customer trust through intelligent, data-driven return decisions.
+A full-stack e-commerce platform (storefront + merchant dashboard) built around a
+**Return Policy Engine**: an ML risk-decisioning service that scores every return
+request in real time, explains its decision feature-by-feature, learns from merchant
+overrides, and monitors its own data drift.
 
-## Features
+Return fraud costs Indian e-commerce an estimated 2-3% of GMV. Most platforms answer
+with blanket policies that punish honest customers. This project answers with
+per-request decisions: a 48-order loyal customer gets instant approval; a 12-day-old
+account with 5 returns in 8 orders gets auto-denied — and both can see exactly why.
 
-- **ML-Powered Scoring**: Gradient Boosting model analyzes buyer behavior, product attributes, and request context
-- **Risk Detection**: Automatic detection of fraudulent return patterns with detailed risk flags
-- **Configurable Thresholds**: Merchants can set auto-approve and auto-deny score thresholds
-- **Real-time API**: Simple REST API for seamless integration with any e-commerce platform
-- **Merchant Dashboard**: Analytics, return management, and policy configuration UI
+## One-command demo
+
+```bash
+docker compose up -d --build
+```
+
+Everything self-provisions: the engine trains its initial model, registers it,
+creates the demo merchant + API key, and the store seeds its catalog, demo buyers,
+and delivered orders. No manual setup steps.
+
+| URL | What | Login |
+|-----|------|-------|
+| http://localhost:3001 | ShopZone storefront | see demo accounts below |
+| http://localhost:3000 | Merchant dashboard | `demo-merchant@shopzone.com` / `demo1234` |
+| http://localhost:8000/docs | Return Policy Engine API | API key auth |
+| http://localhost:8001/docs | Store API | JWT auth |
+
+### The 90-second demo script
+
+1. Log in to the storefront as **`demo.risky@shopzone.com`** / `demo1234`
+   (new account, 5 returns in 8 orders). Open **Orders**, pick the Smart Fitness
+   Watch, request a return with reason *Changed my mind*.
+   → **Auto-denied in real time.** The detail page shows the score (≈0/100) and
+   the per-feature breakdown: buyer return rate −47 pts, no reviews −39 pts,
+   account age −21 pts.
+2. Log out, log in as **`demo.trusted@shopzone.com`** / `demo1234`
+   (48 orders, 1 return, 500-day-old account). Return the jeans for *Size issue*.
+   → **Auto-approved** (score ≈90/100) with the positive contributions shown.
+3. Open the merchant dashboard → **Returns** to see both decisions with risk
+   flags and the "Why this decision" waterfall. Override any REVIEW decision —
+   that becomes labeled training data.
+4. Dashboard → **Models**: hit **Retrain from feedback**. A new model version is
+   trained with your overrides as ground truth, registered with its metrics, and
+   hot-swapped into serving. The **Data Drift** panel shows per-feature PSI of
+   live traffic vs. the training distribution.
 
 ## Architecture
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Merchant UI   │────▶│   FastAPI       │────▶│   PostgreSQL    │
-│   (Next.js)     │     │   Backend       │     │   Database      │
-└─────────────────┘     └────────┬────────┘     └─────────────────┘
-                                 │
-                        ┌────────┴────────┐
-                        │   ML Scoring    │
-                        │   Engine        │
-                        └─────────────────┘
+┌──────────────────┐         ┌──────────────────┐
+│   Storefront     │────────▶│   Store API       │──────────────┐
+│   Next.js :3001  │         │   FastAPI :8001   │              │ X-API-Key
+└──────────────────┘         │   (orders, cart,  │              ▼
+                             │    returns, ...)  │   ┌──────────────────────┐
+┌──────────────────┐         └────────┬─────────┘   │  Return Policy Engine │
+│ Merchant         │                  │             │  FastAPI :8000        │
+│ Dashboard        │──────────────────┼────────────▶│  • scoring + flags    │
+│ Next.js :3000    │   JWT            │             │  • explainability     │
+└──────────────────┘                  ▼             │  • model registry     │
+                             ┌─────────────┐        │  • drift monitor (PSI)│
+                             │ PostgreSQL  │        └──────────┬───────────┘
+                             │ (store)     │                   ▼
+                             └─────────────┘        ┌─────────────┐
+                                                    │ PostgreSQL  │
+                                                    │ (engine)    │
+                                                    └─────────────┘
 ```
 
-## Quick Start
+The engine is a standalone multi-tenant SaaS-style service: any storefront can
+integrate via three endpoints (`/buyers/sync`, `/products/sync`, `/score`) with an
+API key. ShopZone is the reference integration — the store syncs buyer/product
+stats before scoring and auto-applies APPROVE/DENY recommendations.
 
-### Prerequisites
+## What makes the ML layer more than a `model.predict()`
 
-- Docker and Docker Compose
-- Node.js 18+ (for local development)
-- Python 3.11+ (for local development)
+**Explainable decisions.** Every score ships with per-feature contributions
+computed by interventional ablation against training-set baselines: each feature
+is replaced by its training median and the probability shift is attributed to it,
+in score points. Both the merchant dashboard and the customer-facing return page
+render the waterfall. No black-box denials.
 
-### Using Docker (Recommended)
+**Feedback loop (human-in-the-loop retraining).** When a merchant overrides a
+system decision, the request's feature snapshot + the human decision become a
+labeled sample. `POST /models/retrain` mixes this ground truth into training at
+elevated weight, evaluates, registers a new version in the model registry
+(Postgres-backed, with metrics), and hot-swaps serving — no restart.
 
-1. Clone the repository:
-```bash
-cd return-policy-engine
-```
+**Model registry + versioned serving.** Every trained model is stored with its
+accuracy / precision / recall / F1 / ROC-AUC, sample counts, and timestamps.
+Each scored request records which model version decided it, so any historical
+decision is reproducible.
 
-2. Start all services:
-```bash
-docker-compose up -d
-```
+**Drift monitoring.** The training feature distributions travel with the model
+bundle. The `/models/drift` endpoint computes Population Stability Index per
+feature over recent live traffic (PSI > 0.25 = drifted) and the dashboard
+surfaces it — the standard "is my model going stale" signal used in production
+risk systems.
 
-3. Access the application:
-   - Dashboard: http://localhost:3000
-   - API Docs: http://localhost:8000/docs
-   - API: http://localhost:8000/api/v1
+**Hybrid scoring.** The gradient-boosting score is combined with deterministic
+risk flags (return window, velocity, account age, order value) and
+merchant-configurable thresholds (auto-approve / fraud) — ML informs, policy
+decides. Falls back to a transparent rules engine if no model is available.
 
-### Local Development
+**Honest evaluation.** The synthetic training data (modeled on Flipkart/Amazon
+return patterns: category return rates, buyer personas, seasonal effects)
+deliberately overlaps fraud and legitimate behavior and injects ~4% label noise,
+so reported metrics (~87% accuracy, ROC-AUC ~0.78) reflect a learnable-but-hard
+problem instead of leaking the label. Swapping in a real dataset (e.g. Olist)
+only requires implementing one loader function.
 
-#### Backend
+### ML feature set (15 features)
 
-```bash
-cd backend
+| Group | Features |
+|-------|----------|
+| Buyer history | return rate, total orders/returns, avg review score, account age, lifetime spend |
+| Product | category risk, product return rate, price, price tier |
+| Request context | days since order, order amount, return reason, hour, day of week |
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set up environment
-cp .env.example .env
-
-# Start PostgreSQL (or use Docker)
-docker run -d --name postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=return_engine -p 5432:5432 postgres:15-alpine
-
-# Train the ML model (optional - will use rules-based fallback)
-python -m app.ml.train
-
-# Run the server
-uvicorn app.main:app --reload
-```
-
-#### Dashboard
-
-```bash
-cd dashboard
-
-# Install dependencies
-npm install
-
-# Set up environment
-cp .env.local.example .env.local
-
-# Run development server
-npm run dev
-```
-
-## API Usage
-
-### Authentication
-
-The API uses API keys for authentication. Generate one from the dashboard or via API.
-
-Include the key in requests:
-```
-X-API-Key: rpe_your_api_key_here
-```
-
-### Calculate Return Score
+## API quick reference (engine)
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/score" \
-  -H "X-API-Key: your_api_key" \
-  -H "Content-Type: application/json" \
+# Score a return request
+curl -X POST http://localhost:8000/api/v1/score \
+  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
   -d '{
-    "buyer_id": "buyer_123",
-    "product_id": "prod_456",
-    "order_id": "order_789",
-    "order_date": "2024-01-15T00:00:00Z",
-    "order_amount": 99.99,
+    "buyer_id": "buyer_123", "product_id": "prod_456", "order_id": "order_789",
+    "order_date": "2026-06-25T00:00:00Z", "order_amount": 1999,
     "return_reason": "size_issue"
   }'
 ```
 
-Response:
-```json
+```jsonc
+// Response (abridged)
 {
-  "score": 78,
-  "risk_level": "low",
-  "recommendation": "APPROVE",
+  "score": 89.7, "risk_level": "low", "recommendation": "APPROVE",
+  "confidence": 0.93, "model_version": 3,
   "risk_flags": [],
-  "return_window_days": 30,
-  "confidence": 0.92,
-  "buyer_return_rate": 5.2,
-  "days_since_order": 12,
-  "within_return_window": true,
-  "request_id": "uuid-here"
+  "explanation": [
+    {"label": "Return reason", "value": "size_issue", "contribution": 15.3, "direction": "positive"},
+    {"label": "Buyer review score", "value": "4.80", "contribution": 0.4, "direction": "positive"}
+  ]
 }
 ```
 
-### Sync Buyer Data
+Other endpoints: `POST /buyers/sync`, `POST /products/sync`, `GET/PUT /returns`,
+`GET /models`, `POST /models/retrain`, `GET /models/drift`, `GET /dashboard/stats`.
+Interactive docs at `/docs` on both services.
+
+## Running tests
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/buyers/sync" \
-  -H "X-API-Key: your_api_key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "buyers": [
-      {
-        "external_buyer_id": "buyer_123",
-        "total_orders": 25,
-        "total_returns": 2,
-        "avg_review_score": 4.5,
-        "total_spend": 1500.00
-      }
-    ]
-  }'
+cd backend
+python -m venv .venv && .venv/Scripts/pip install -r requirements.txt   # Windows
+.venv/Scripts/python -m pytest tests/ -q
 ```
 
-### Sync Product Catalog
+The suite covers the full loop end-to-end against a live app instance:
+bootstrap provisioning, trusted-vs-risky scoring contrast, explanation payloads,
+merchant override → retrain → version activation, and the drift report.
+
+## Local development (without Docker)
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/products/sync" \
-  -H "X-API-Key: your_api_key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "products": [
-      {
-        "external_product_id": "prod_456",
-        "name": "Blue T-Shirt",
-        "category": "clothing",
-        "price": 29.99
-      }
-    ]
-  }'
+# Terminal 1 - engine (trains a model on first boot)
+cd backend && pip install -r requirements.txt
+DEMO_MERCHANT_EMAIL=demo-merchant@shopzone.com DEMO_API_KEY=rpe_dev_key_123 \
+  uvicorn app.main:app --port 8000
+
+# Terminal 2 - store API (auto-seeds demo data)
+cd ecommerce/backend && pip install -r requirements.txt
+AUTO_SEED=true RETURN_ENGINE_URL=http://localhost:8000/api/v1 \
+  RETURN_ENGINE_API_KEY=rpe_dev_key_123 uvicorn app.main:app --port 8001
+
+# Terminals 3 & 4 - frontends
+cd dashboard && npm install && npm run dev            # :3000
+cd ecommerce/frontend && npm install && npm run dev   # :3001
 ```
 
-## ML Model
+SQLite works out of the box for quick local runs
+(`DATABASE_URL=sqlite:///./dev.db`); Postgres is used in Docker/production.
 
-### Features Used
+## Deployment
 
-**Buyer Behavior:**
-- Return rate (returns/orders)
-- Total orders and returns
-- Average review score
-- Account age
-- Total spend
+`render.yaml` deploys both APIs (engine + store) and a free Postgres to
+[Render](https://render.com); point the two Next.js apps at them from Vercel with
+`NEXT_PUBLIC_API_URL`. Set matching `DEMO_API_KEY` / `RETURN_ENGINE_API_KEY`
+values so the store-to-engine integration provisions itself, exactly like the
+compose setup.
 
-**Product Attributes:**
-- Category risk score
-- Price tier
-- Product return rate
+> Checkout uses simulated payments (COD/UPI/card selection without a gateway) —
+> the focus of this project is the returns/risk pipeline, not payment processing.
 
-**Request Context:**
-- Days since order
-- Order amount
-- Return reason
-- Request timing
-
-### Risk Flags
-
-The system detects various risk indicators:
-- `HIGH_RETURN_RATE`: Buyer returns >30% of orders
-- `NEW_ACCOUNT`: Account <30 days old
-- `OUTSIDE_RETURN_WINDOW`: Request past return deadline
-- `MULTIPLE_RECENT_RETURNS`: 3+ returns in current month
-- `HIGH_VALUE_ITEM`: Order >$500
-- And more...
-
-## Configuration
-
-### Environment Variables
-
-**Backend:**
-- `DATABASE_URL`: PostgreSQL connection string
-- `SECRET_KEY`: JWT signing key (change in production!)
-- `HIGH_RISK_THRESHOLD`: Score below which returns are denied (default: 30)
-- `MEDIUM_RISK_THRESHOLD`: Score above which returns are low risk (default: 60)
-
-**Dashboard:**
-- `NEXT_PUBLIC_API_URL`: Backend API URL
-
-## Project Structure
+## Project structure
 
 ```
-return-policy-engine/
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI application
-│   │   ├── config.py            # Settings
-│   │   ├── database.py          # DB connection
-│   │   ├── models/              # SQLAlchemy models
-│   │   ├── schemas/             # Pydantic schemas
-│   │   ├── routers/             # API endpoints
-│   │   ├── services/            # Business logic
-│   │   └── ml/                  # ML model code
-│   ├── requirements.txt
-│   └── Dockerfile
-├── dashboard/
-│   ├── app/                     # Next.js pages
-│   ├── components/              # React components
-│   ├── lib/                     # Utilities
-│   └── Dockerfile
-├── docker-compose.yml
-└── README.md
+├── backend/                  # Return Policy Engine (FastAPI + scikit-learn)
+│   ├── app/ml/               # training, prediction, explainability, drift
+│   ├── app/routers/          # score, returns, buyers, products, models, auth
+│   ├── app/services/         # scoring engine, bootstrap, auth
+│   └── tests/                # end-to-end API tests
+├── dashboard/                # Merchant dashboard (Next.js)
+├── ecommerce/
+│   ├── backend/              # Store API (FastAPI): cart, orders, returns, reviews
+│   └── frontend/             # Storefront (Next.js)
+├── docker-compose.yml        # full stack, one command
+└── render.yaml               # cloud deployment blueprint
 ```
 
 ## License

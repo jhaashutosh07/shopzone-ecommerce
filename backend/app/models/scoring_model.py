@@ -21,10 +21,12 @@ class ScoringModel(Base):
     # Model metadata
     features_used = Column(String(1000), nullable=True)  # JSON array of feature names
     training_samples = Column(Integer, default=0)
+    feedback_samples = Column(Integer, default=0)  # merchant-override ground truth mixed in
     accuracy = Column(Float, nullable=True)
     precision_score = Column(Float, nullable=True)
     recall_score = Column(Float, nullable=True)
     f1_score = Column(Float, nullable=True)
+    roc_auc = Column(Float, nullable=True)
 
     # Status
     is_active = Column(Boolean, default=False)

@@ -53,6 +53,7 @@ class ReturnRequest(Base):
     risk_flags = Column(Text, nullable=True)  # JSON string
     engine_recommendation = Column(String(20), nullable=True)  # APPROVE, REVIEW, DENY
     engine_confidence = Column(Float, nullable=True)
+    engine_explanation = Column(Text, nullable=True)  # JSON: why the engine scored it this way
 
     # Decision
     decision = Column(String(20), nullable=True)  # approved, rejected

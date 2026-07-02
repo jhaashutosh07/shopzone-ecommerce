@@ -1,3 +1,13 @@
+# Deploys both APIs to Render's free tier.
+# Frontends (dashboard/, ecommerce/frontend/) deploy to Vercel with
+# NEXT_PUBLIC_API_URL pointing at these services.
+#
+# Note: the engine uses SQLite on the free tier (Render's free plan allows one
+# Postgres, used by the store). The filesystem is ephemeral, so the engine
+# re-trains its model and re-provisions the demo merchant on each deploy —
+# scoring history/feedback resets. Attach a second Postgres and set
+# DATABASE_URL on shopzone-rpe to make it durable.
+
 databases:
   - name: shopzone-db
     plan: free
@@ -5,6 +15,31 @@ databases:
     user: shopzone
 
 services:
+  # Return Policy Engine (ML scoring service)
+  - type: web
+    name: shopzone-rpe
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:///./rpe.db
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEMO_MERCHANT_EMAIL
+        value: demo-merchant@shopzone.com
+      - key: DEMO_MERCHANT_PASSWORD
+        sync: false
+      - key: DEMO_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false # comma-separated Vercel URLs of dashboard + storefront
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+
+  # ShopZone store API
   - type: web
     name: shopzone-api
     runtime: python
@@ -23,5 +58,11 @@ services:
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "1440"
+      - key: AUTO_SEED
+        value: "true"
+      - key: RETURN_ENGINE_URL
+        value: https://shopzone-rpe.onrender.com/api/v1
+      - key: RETURN_ENGINE_API_KEY
+        sync: false # must match DEMO_API_KEY on shopzone-rpe
       - key: PYTHON_VERSION
         value: "3.11.0"

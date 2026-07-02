@@ -274,6 +274,42 @@ export default function ReturnsPage() {
                   </div>
                 </div>
 
+                {selectedReturn.explanation && selectedReturn.explanation.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm text-gray-500">Why this decision</p>
+                      {selectedReturn.model_version && (
+                        <span className="text-xs text-gray-400">model v{selectedReturn.model_version}</span>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      {selectedReturn.explanation.map((c, i) => {
+                        const width = Math.min(Math.abs(c.contribution) * 2, 100);
+                        const positive = c.direction === 'positive';
+                        return (
+                          <div key={i} className="flex items-center text-sm">
+                            <div className="w-44 truncate text-gray-700" title={`${c.label}: ${c.value}`}>
+                              {c.label} <span className="text-gray-400">({c.value})</span>
+                            </div>
+                            <div className="flex-1 mx-2 h-3 bg-gray-100 rounded overflow-hidden">
+                              <div
+                                className={`h-full ${positive ? 'bg-green-400' : 'bg-red-400'}`}
+                                style={{ width: `${width}%` }}
+                              />
+                            </div>
+                            <div className={`w-14 text-right font-medium ${positive ? 'text-green-600' : 'text-red-600'}`}>
+                              {positive ? '+' : ''}{c.contribution.toFixed(1)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Contribution of each factor to the eligibility score, in points.
+                    </p>
+                  </div>
+                )}
+
                 {selectedReturn.risk_flags && selectedReturn.risk_flags.length > 0 && (
                   <div>
                     <p className="text-sm text-gray-500 mb-2">Risk Flags</p>

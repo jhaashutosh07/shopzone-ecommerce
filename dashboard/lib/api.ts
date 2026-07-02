@@ -20,6 +20,14 @@ interface DashboardStats {
   returns_last_week: number;
 }
 
+interface FeatureContribution {
+  feature: string;
+  label: string;
+  value: string;
+  contribution: number;
+  direction: 'positive' | 'negative';
+}
+
 interface ReturnRequest {
   id: string;
   buyer_id: string;
@@ -32,8 +40,48 @@ interface ReturnRequest {
   eligibility_score: number | null;
   risk_level: string | null;
   risk_flags: Array<{ code: string; description: string; severity: string }>;
+  explanation: FeatureContribution[] | null;
+  model_version: number | null;
   decision: string;
   days_since_order: number;
+}
+
+interface ModelVersion {
+  id: string;
+  version: number;
+  model_type: string;
+  is_active: boolean;
+  training_samples: number;
+  feedback_samples: number;
+  accuracy: number | null;
+  precision_score: number | null;
+  recall_score: number | null;
+  f1_score: number | null;
+  roc_auc: number | null;
+  trained_at: string | null;
+  created_at: string;
+}
+
+interface RetrainResult {
+  version: number;
+  metrics: Record<string, number>;
+  feedback_samples: number;
+  activated: boolean;
+  message: string;
+}
+
+interface FeatureDrift {
+  feature: string;
+  label: string;
+  psi: number;
+  status: 'stable' | 'moderate' | 'drifted';
+}
+
+interface DriftReport {
+  model_version: number | null;
+  samples_analyzed: number;
+  features: FeatureDrift[];
+  overall_status: 'stable' | 'moderate' | 'drifted' | 'insufficient_data';
 }
 
 interface Buyer {
@@ -175,7 +223,28 @@ class ApiClient {
       body: JSON.stringify(settings),
     });
   }
+
+  async getModels(): Promise<ModelVersion[]> {
+    return this.fetch('/models');
+  }
+
+  async retrainModel(): Promise<RetrainResult> {
+    return this.fetch('/models/retrain', { method: 'POST' });
+  }
+
+  async getDriftReport(): Promise<DriftReport> {
+    return this.fetch('/models/drift');
+  }
 }
 
 export const api = new ApiClient();
-export type { DashboardStats, ReturnRequest, Buyer };
+export type {
+  DashboardStats,
+  ReturnRequest,
+  Buyer,
+  FeatureContribution,
+  ModelVersion,
+  RetrainResult,
+  FeatureDrift,
+  DriftReport,
+};

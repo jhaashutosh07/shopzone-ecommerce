@@ -1,8 +1,10 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.database import engine, Base
+from app.database import engine, Base, SessionLocal
 from app.routers import (
     auth_router,
     scoring_router,
@@ -10,12 +12,21 @@ from app.routers import (
     buyers_router,
     products_router,
     dashboard_router,
+    models_router,
 )
 
 settings = get_settings()
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Self-provisioning: schema upgrades, initial model, demo merchant
+    from app.services.bootstrap import run_bootstrap
+    run_bootstrap(engine, SessionLocal)
+    yield
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -40,15 +51,16 @@ A merchant-facing API for intelligent return eligibility scoring using ML-based 
 2. Generate an API key
 3. Start scoring return requests!
     """,
-    version="1.0.0",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Dashboard URL
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -61,6 +73,7 @@ app.include_router(returns_router, prefix=settings.api_v1_prefix)
 app.include_router(buyers_router, prefix=settings.api_v1_prefix)
 app.include_router(products_router, prefix=settings.api_v1_prefix)
 app.include_router(dashboard_router, prefix=settings.api_v1_prefix)
+app.include_router(models_router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/")

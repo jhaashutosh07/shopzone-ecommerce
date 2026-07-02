@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   RotateCcw,
   Users,
+  Brain,
   Settings,
   LogOut,
   Menu,
@@ -18,6 +19,7 @@ const navigation = [
   { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Returns', href: '/dashboard/returns', icon: RotateCcw },
   { name: 'Buyers', href: '/dashboard/buyers', icon: Users },
+  { name: 'Models', href: '/dashboard/models', icon: Brain },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 

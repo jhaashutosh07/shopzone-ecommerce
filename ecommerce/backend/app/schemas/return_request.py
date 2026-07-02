@@ -26,6 +26,7 @@ class ReturnRequestResponse(BaseModel):
     risk_flags: Optional[str] = None
     engine_recommendation: Optional[str] = None
     engine_confidence: Optional[float] = None
+    engine_explanation: Optional[str] = None  # JSON array of feature contributions
     decision: Optional[str] = None
     decided_by: Optional[str] = None
     decision_notes: Optional[str] = None

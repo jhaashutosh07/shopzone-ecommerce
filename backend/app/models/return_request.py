@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Enum, Text
+from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Enum, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
@@ -48,6 +48,9 @@ class ReturnRequest(Base):
     risk_level = Column(String(20), nullable=True)  # low, medium, high
     risk_flags = Column(Text, nullable=True)  # JSON array of flags
     confidence = Column(Float, nullable=True)
+    explanation = Column(Text, nullable=True)  # JSON array of feature contributions
+    features_snapshot = Column(Text, nullable=True)  # JSON of features at scoring time (drift + retraining)
+    model_version = Column(Integer, nullable=True)
 
     # Decision
     decision = Column(Enum(ReturnDecision), default=ReturnDecision.PENDING)

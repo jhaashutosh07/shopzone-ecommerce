@@ -46,13 +46,17 @@ class ReturnEngineClient:
             # Return Policy Engine not configured
             return None
 
+        # The store has reasons the engine doesn't model; map to the closest
+        REASON_MAP = {"better_price_elsewhere": "changed_mind"}
+        engine_reason = REASON_MAP.get(return_reason, return_reason)
+
         payload = {
             "buyer_id": buyer.id,
             "product_id": product.id,
             "order_id": order.id,
             "order_date": order.created_at.isoformat(),
             "order_amount": order_item.total_price,
-            "return_reason": return_reason,
+            "return_reason": engine_reason,
             "reason_details": None
         }
 

@@ -14,9 +14,10 @@ from app.schemas.scoring import (
     RiskLevel,
     Recommendation,
     RiskFlag,
+    FeatureContribution,
 )
 from app.config import get_settings
-from app.ml.predict import MLPredictor
+from app.ml.predict import get_predictor
 
 settings = get_settings()
 
@@ -27,7 +28,7 @@ class ScoringEngine:
     def __init__(self, db: Session, merchant: Merchant):
         self.db = db
         self.merchant = merchant
-        self.ml_predictor = MLPredictor()
+        self.ml_predictor = get_predictor()
 
     def calculate_score(self, request: ScoreRequest) -> ScoreResponse:
         """Calculate the return eligibility score."""
@@ -45,8 +46,10 @@ class ScoringEngine:
         # Extract features for ML model
         features = self._extract_features(buyer, product, request, days_since_order)
 
-        # Get ML prediction
+        # Get ML prediction and per-feature explanation
         ml_score, confidence = self.ml_predictor.predict(features)
+        explanation = self.ml_predictor.explain(features)
+        model_version = self.ml_predictor.version
 
         # Detect risk flags
         risk_flags = self._detect_risk_flags(buyer, product, request, days_since_order)
@@ -60,7 +63,8 @@ class ScoringEngine:
 
         # Create return request record
         return_request = self._create_return_request(
-            buyer, product, request, adjusted_score, risk_level, risk_flags, confidence, recommendation
+            buyer, product, request, adjusted_score, risk_level, risk_flags,
+            confidence, recommendation, explanation, features, model_version
         )
 
         return ScoreResponse(
@@ -73,6 +77,8 @@ class ScoringEngine:
             buyer_return_rate=round(buyer.return_rate * 100, 2),
             days_since_order=days_since_order,
             within_return_window=within_window,
+            explanation=[FeatureContribution(**c) for c in explanation],
+            model_version=model_version,
             request_id=return_request.id,
         )
 
@@ -303,7 +309,10 @@ class ScoringEngine:
         risk_level: RiskLevel,
         risk_flags: List[RiskFlag],
         confidence: float,
-        recommendation: Recommendation
+        recommendation: Recommendation,
+        explanation: Optional[list] = None,
+        features: Optional[dict] = None,
+        model_version: Optional[int] = None,
     ) -> ReturnRequest:
         """Create a return request record."""
         # Determine initial decision based on recommendation
@@ -330,6 +339,9 @@ class ScoringEngine:
             risk_level=risk_level.value,
             risk_flags=json.dumps([f.model_dump() for f in risk_flags]),
             confidence=confidence,
+            explanation=json.dumps(explanation) if explanation else None,
+            features_snapshot=json.dumps(features) if features else None,
+            model_version=model_version,
             decision=decision,
             decided_at=datetime.utcnow() if decided_by else None,
             decided_by=decided_by,

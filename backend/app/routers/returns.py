@@ -25,6 +25,13 @@ def _format_return_response(return_req: ReturnRequest) -> ReturnRequestResponse:
         except json.JSONDecodeError:
             pass
 
+    explanation = None
+    if return_req.explanation:
+        try:
+            explanation = json.loads(return_req.explanation)
+        except json.JSONDecodeError:
+            pass
+
     return ReturnRequestResponse(
         id=return_req.id,
         merchant_id=return_req.merchant_id,
@@ -40,6 +47,8 @@ def _format_return_response(return_req: ReturnRequest) -> ReturnRequestResponse:
         risk_level=return_req.risk_level,
         risk_flags=risk_flags,
         confidence=return_req.confidence,
+        explanation=explanation,
+        model_version=return_req.model_version,
         decision=return_req.decision,
         decided_at=return_req.decided_at,
         decided_by=return_req.decided_by,
