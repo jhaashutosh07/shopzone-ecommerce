@@ -93,6 +93,9 @@ class Product(Base):
     total_returned = Column(Integer, default=0)
     view_count = Column(Integer, default=0)
 
+    # Extended listing details (JSON: warranty, shipping, tags, source, ...)
+    details = Column(Text, nullable=True)
+
     # SEO
     meta_title = Column(String(255), nullable=True)
     meta_description = Column(String(500), nullable=True)

@@ -16,6 +16,7 @@ Base.metadata.create_all(bind=engine)
 # Columns added after the initial release; applied idempotently on boot
 SCHEMA_UPGRADES = [
     ("return_requests", "engine_explanation", "TEXT"),
+    ("products", "details", "TEXT"),
 ]
 
 
@@ -41,6 +42,14 @@ async def lifespan(app: FastAPI):
         try:
             result = seed_database(db)
             print(f"Auto-seed: {result['message']}")
+        finally:
+            db.close()
+    if settings.import_catalog:
+        from app.services.importer import import_catalog
+        db = SessionLocal()
+        try:
+            result = import_catalog(db)
+            print(f"Catalog import: {result['message']}")
         finally:
             db.close()
     yield
@@ -99,5 +108,17 @@ def seed_database_endpoint():
     db = SessionLocal()
     try:
         return seed_database(db)
+    finally:
+        db.close()
+
+
+@app.post("/api/v1/catalog/import")
+def import_catalog_endpoint():
+    """Import real product listings from the web catalog (idempotent)."""
+    from app.services.importer import import_catalog
+
+    db = SessionLocal()
+    try:
+        return import_catalog(db)
     finally:
         db.close()

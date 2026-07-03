@@ -88,6 +88,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@store-db:5432/ecommerce_db
       SECRET_KEY: ${STORE_SECRET_KEY:-ecommerce-secret-key-change-in-production}
       AUTO_SEED: "true"
+      IMPORT_CATALOG: "true"
       RETURN_ENGINE_URL: http://engine:8000/api/v1
       RETURN_ENGINE_API_KEY: ${DEMO_API_KEY:-rpe_demo_compose_key_change_in_prod_1}
     ports:

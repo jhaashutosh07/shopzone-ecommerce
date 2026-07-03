@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from typing import List, Optional
+import json
 import re
 
 from app.database import get_db
@@ -9,11 +10,33 @@ from app.models.user import User
 from app.models.product import Product, ProductImage, ProductCategory
 from app.schemas.product import (
     ProductCreate, ProductUpdate, ProductResponse, ProductListResponse,
-    ProductImageCreate, ProductImageResponse
+    ProductImageCreate, ProductImageResponse, BrandInfo
 )
 from app.services.auth import get_current_user, get_current_seller
 
 router = APIRouter(prefix="/products", tags=["Products"])
+
+
+def _list_response(p: Product) -> ProductListResponse:
+    ordered = sorted(p.images, key=lambda i: (not i.is_primary, i.sort_order))
+    hover = ordered[1].url if len(ordered) > 1 else None
+    return ProductListResponse(
+        id=p.id,
+        name=p.name,
+        slug=p.slug,
+        category=p.category,
+        brand=p.brand,
+        price=p.price,
+        compare_at_price=p.compare_at_price,
+        discount_percentage=p.discount_percentage,
+        avg_rating=p.avg_rating,
+        review_count=p.review_count,
+        in_stock=p.in_stock,
+        primary_image=p.primary_image,
+        hover_image=hover,
+        total_sold=p.total_sold or 0,
+        seller_id=p.seller_id,
+    )
 
 
 def create_slug(name: str, db: Session) -> str:
@@ -96,20 +119,7 @@ def list_products(
     if min_rating is not None:
         products = [p for p in products if p.avg_rating >= min_rating]
 
-    return [ProductListResponse(
-        id=p.id,
-        name=p.name,
-        slug=p.slug,
-        category=p.category,
-        price=p.price,
-        compare_at_price=p.compare_at_price,
-        discount_percentage=p.discount_percentage,
-        avg_rating=p.avg_rating,
-        review_count=p.review_count,
-        in_stock=p.in_stock,
-        primary_image=p.primary_image,
-        seller_id=p.seller_id
-    ) for p in products]
+    return [_list_response(p) for p in products]
 
 
 @router.get("/featured", response_model=List[ProductListResponse])
@@ -123,20 +133,7 @@ def get_featured_products(
         Product.is_featured == True
     ).order_by(Product.total_sold.desc()).limit(limit).all()
 
-    return [ProductListResponse(
-        id=p.id,
-        name=p.name,
-        slug=p.slug,
-        category=p.category,
-        price=p.price,
-        compare_at_price=p.compare_at_price,
-        discount_percentage=p.discount_percentage,
-        avg_rating=p.avg_rating,
-        review_count=p.review_count,
-        in_stock=p.in_stock,
-        primary_image=p.primary_image,
-        seller_id=p.seller_id
-    ) for p in products]
+    return [_list_response(p) for p in products]
 
 
 @router.get("/deals", response_model=List[ProductListResponse])
@@ -151,20 +148,7 @@ def get_deals(
         Product.compare_at_price > Product.price
     ).order_by((Product.compare_at_price - Product.price).desc()).limit(limit).all()
 
-    return [ProductListResponse(
-        id=p.id,
-        name=p.name,
-        slug=p.slug,
-        category=p.category,
-        price=p.price,
-        compare_at_price=p.compare_at_price,
-        discount_percentage=p.discount_percentage,
-        avg_rating=p.avg_rating,
-        review_count=p.review_count,
-        in_stock=p.in_stock,
-        primary_image=p.primary_image,
-        seller_id=p.seller_id
-    ) for p in products]
+    return [_list_response(p) for p in products]
 
 
 @router.get("/category/{category}", response_model=List[ProductListResponse])
@@ -180,20 +164,20 @@ def get_products_by_category(
         Product.category == category
     ).order_by(Product.total_sold.desc()).offset((page - 1) * per_page).limit(per_page).all()
 
-    return [ProductListResponse(
-        id=p.id,
-        name=p.name,
-        slug=p.slug,
-        category=p.category,
-        price=p.price,
-        compare_at_price=p.compare_at_price,
-        discount_percentage=p.discount_percentage,
-        avg_rating=p.avg_rating,
-        review_count=p.review_count,
-        in_stock=p.in_stock,
-        primary_image=p.primary_image,
-        seller_id=p.seller_id
-    ) for p in products]
+    return [_list_response(p) for p in products]
+
+
+@router.get("/brands", response_model=List[BrandInfo])
+def list_brands(db: Session = Depends(get_db)):
+    """Distinct brands with product counts (for catalog filters)."""
+    rows = (
+        db.query(Product.brand, func.count(Product.id))
+        .filter(Product.is_active == True, Product.brand.isnot(None))
+        .group_by(Product.brand)
+        .order_by(func.count(Product.id).desc())
+        .all()
+    )
+    return [BrandInfo(name=name, product_count=count) for name, count in rows]
 
 
 @router.get("/{product_id}", response_model=ProductResponse)
@@ -209,6 +193,13 @@ def get_product(product_id: str, db: Session = Depends(get_db)):
     # Increment view count
     product.view_count += 1
     db.commit()
+
+    details = None
+    if product.details:
+        try:
+            details = json.loads(product.details)
+        except json.JSONDecodeError:
+            pass
 
     return ProductResponse(
         id=product.id,
@@ -248,7 +239,8 @@ def get_product(product_id: str, db: Session = Depends(get_db)):
             alt_text=img.alt_text,
             is_primary=img.is_primary,
             sort_order=img.sort_order
-        ) for img in product.images],
+        ) for img in sorted(product.images, key=lambda i: (not i.is_primary, i.sort_order))],
+        details=details,
         created_at=product.created_at
     )
 

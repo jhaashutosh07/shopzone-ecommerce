@@ -79,10 +79,16 @@ class ProductResponse(ProductBase):
     in_stock: bool
     primary_image: str
     images: List[ProductImageResponse] = []
+    details: Optional[dict] = None  # warranty, shipping, tags, source, ...
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class BrandInfo(BaseModel):
+    name: str
+    product_count: int
 
 
 class ProductListResponse(BaseModel):
@@ -90,6 +96,7 @@ class ProductListResponse(BaseModel):
     name: str
     slug: str
     category: ProductCategory
+    brand: Optional[str] = None
     price: float
     compare_at_price: Optional[float] = None
     discount_percentage: int
@@ -97,6 +104,8 @@ class ProductListResponse(BaseModel):
     review_count: int
     in_stock: bool
     primary_image: str
+    hover_image: Optional[str] = None
+    total_sold: int = 0
     seller_id: str
 
     class Config:

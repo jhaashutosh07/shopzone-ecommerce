@@ -117,6 +117,10 @@ class ApiClient {
     return this.request<any[]>(`/products/category/${category}`);
   }
 
+  async getBrands() {
+    return this.request<{ name: string; product_count: number }[]>('/products/brands');
+  }
+
   // Cart
   async getCart() {
     return this.request<any>('/cart');

@@ -1,215 +1,247 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
-import ProductCard from '@/components/ProductCard';
 import Link from 'next/link';
-import { ArrowRight, Truck, Shield, RotateCcw, Headphones } from 'lucide-react';
+import { api } from '@/lib/api';
+import ProductCard, { ProductCardData, ProductCardSkeleton } from '@/components/ProductCard';
+import {
+  ArrowRight,
+  Flame,
+  ShieldCheck,
+  Laptop,
+  Shirt,
+  Sparkle,
+  Home as HomeIcon,
+  Watch,
+  Dumbbell,
+  Apple,
+  Car,
+  ScanSearch,
+  BrainCircuit,
+  BadgeCheck,
+} from 'lucide-react';
+
+const CATEGORY_TILES = [
+  { label: 'Electronics', value: 'electronics', icon: Laptop, tint: 'from-sky-500 to-indigo-600' },
+  { label: 'Fashion', value: 'clothing', icon: Shirt, tint: 'from-rose-500 to-pink-600' },
+  { label: 'Beauty', value: 'beauty', icon: Sparkle, tint: 'from-fuchsia-500 to-purple-600' },
+  { label: 'Home & Living', value: 'home', icon: HomeIcon, tint: 'from-emerald-500 to-teal-600' },
+  { label: 'Jewelry & Watches', value: 'jewelry', icon: Watch, tint: 'from-amber-500 to-orange-600' },
+  { label: 'Sports', value: 'sports', icon: Dumbbell, tint: 'from-lime-500 to-green-600' },
+  { label: 'Grocery', value: 'grocery', icon: Apple, tint: 'from-red-500 to-rose-600' },
+  { label: 'Automotive', value: 'automotive', icon: Car, tint: 'from-slate-600 to-slate-800' },
+];
+
+const AI_STEPS = [
+  {
+    icon: ScanSearch,
+    title: 'Request a return',
+    text: 'Pick any delivered item and tell us what went wrong — that’s it.',
+  },
+  {
+    icon: BrainCircuit,
+    title: 'ML engine scores it live',
+    text: 'Your history, the product and the context are scored in milliseconds by our Return Policy Engine.',
+  },
+  {
+    icon: BadgeCheck,
+    title: 'Instant, explained decision',
+    text: 'Approved or flagged — you see exactly which factors drove the decision. No black boxes.',
+  },
+];
+
+function Row({ title, subtitle, href, products, loading, flame }: {
+  title: string;
+  subtitle: string;
+  href: string;
+  products: ProductCardData[];
+  loading: boolean;
+  flame?: boolean;
+}) {
+  return (
+    <section className="container-page mt-14">
+      <div className="mb-5 flex items-end justify-between">
+        <div>
+          <h2 className="section-title flex items-center gap-2">
+            {flame && <Flame className="h-6 w-6 text-rose-500" />}
+            {title}
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+        </div>
+        <Link href={href} className="hidden items-center gap-1 text-sm font-semibold text-primary-600 hover:text-primary-700 sm:flex">
+          View all <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {loading
+          ? Array.from({ length: 5 }).map((_, i) => <ProductCardSkeleton key={i} />)
+          : products.slice(0, 5).map((p) => <ProductCard key={p.id} product={p} />)}
+      </div>
+    </section>
+  );
+}
 
 export default function HomePage() {
-  const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
-  const [deals, setDeals] = useState<any[]>([]);
+  const [deals, setDeals] = useState<ProductCardData[]>([]);
+  const [featured, setFeatured] = useState<ProductCardData[]>([]);
+  const [newest, setNewest] = useState<ProductCardData[]>([]);
+  const [brands, setBrands] = useState<{ name: string; product_count: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const [featured, dealsData] = await Promise.all([
-          api.getFeaturedProducts(),
-          api.getDeals(),
-        ]);
-        setFeaturedProducts(featured);
-        setDeals(dealsData);
-      } catch (error) {
-        console.error('Failed to load products:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
+    Promise.allSettled([
+      api.getDeals(),
+      api.getFeaturedProducts(),
+      api.getProducts({ sort_by: 'newest', per_page: 10 }),
+      api.getBrands(),
+    ]).then(([d, f, n, b]) => {
+      if (d.status === 'fulfilled') setDeals(d.value);
+      if (f.status === 'fulfilled') setFeatured(f.value);
+      if (n.status === 'fulfilled') setNewest(n.value);
+      if (b.status === 'fulfilled') setBrands(b.value);
+      setLoading(false);
+    });
   }, []);
 
   return (
-    <div>
-      {/* Hero Banner */}
-      <section className="bg-gradient-to-r from-primary-600 to-primary-800 text-white">
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-2xl">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              Shop Smart with Intelligent Returns
+    <div className="pb-8">
+      {/* Hero */}
+      <section className="relative overflow-hidden bg-slate-950">
+        <div className="absolute inset-0">
+          <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-primary-600/30 blur-3xl" />
+          <div className="absolute -bottom-40 right-0 h-[28rem] w-[28rem] rounded-full bg-fuchsia-600/20 blur-3xl" />
+          <div className="absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 rounded-full bg-accent-500/10 blur-3xl" />
+        </div>
+
+        <div className="container-page relative py-16 sm:py-24">
+          <div className="max-w-2xl animate-fade-up">
+            <span className="chip border border-primary-400/30 bg-primary-500/10 text-primary-300">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Every return decision is AI-scored &amp; explained
+            </span>
+            <h1 className="mt-5 font-display text-4xl font-extrabold leading-tight tracking-tight text-white sm:text-6xl">
+              Real products.
+              <br />
+              <span className="bg-gradient-to-r from-primary-400 via-fuchsia-400 to-accent-400 bg-clip-text text-transparent">
+                Radically fair returns.
+              </span>
             </h1>
-            <p className="text-xl mb-8 text-primary-100">
-              Experience hassle-free shopping with our AI-powered return policy engine.
-              Get instant return decisions based on your shopping history.
+            <p className="mt-5 max-w-xl text-base text-slate-300 sm:text-lg">
+              Shop {brands.length > 0 ? `${brands.length}+ brands` : 'hundreds of products'} with
+              live inventory, genuine reviews and an ML engine that approves honest returns in
+              milliseconds — and shows its reasoning.
             </p>
-            <div className="flex gap-4">
-              <Link
-                href="/products"
-                className="px-6 py-3 bg-white text-primary-600 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-              >
-                Shop Now
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/products" className="btn-primary !px-7 !py-3 !text-base shadow-glow">
+                Shop the catalog <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link
-                href="/return-policy"
-                className="px-6 py-3 border-2 border-white text-white rounded-lg font-semibold hover:bg-white/10 transition-colors"
-              >
-                Learn About Returns
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="bg-gray-50 py-8 border-b">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="flex items-center gap-3">
-              <Truck className="w-10 h-10 text-primary-600" />
-              <div>
-                <h3 className="font-semibold">Free Shipping</h3>
-                <p className="text-sm text-gray-600">On orders over Rs. 500</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <RotateCcw className="w-10 h-10 text-primary-600" />
-              <div>
-                <h3 className="font-semibold">Easy Returns</h3>
-                <p className="text-sm text-gray-600">30-day return policy</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Shield className="w-10 h-10 text-primary-600" />
-              <div>
-                <h3 className="font-semibold">Secure Payment</h3>
-                <p className="text-sm text-gray-600">100% secure checkout</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Headphones className="w-10 h-10 text-primary-600" />
-              <div>
-                <h3 className="font-semibold">24/7 Support</h3>
-                <p className="text-sm text-gray-600">Dedicated support</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Featured Products */}
-      <section className="py-12">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-bold">Featured Products</h2>
-            <Link
-              href="/products"
-              className="text-primary-600 hover:text-primary-700 flex items-center gap-1"
-            >
-              View All <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="bg-gray-200 aspect-square rounded-lg mb-4"></div>
-                  <div className="bg-gray-200 h-4 rounded mb-2"></div>
-                  <div className="bg-gray-200 h-4 w-2/3 rounded"></div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-              {featuredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Deals Section */}
-      {deals.length > 0 && (
-        <section className="py-12 bg-red-50">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h2 className="text-2xl font-bold text-red-600">Today's Deals</h2>
-                <p className="text-gray-600">Limited time offers</p>
-              </div>
-              <Link
-                href="/products/deals"
-                className="text-red-600 hover:text-red-700 flex items-center gap-1"
-              >
-                View All Deals <ArrowRight className="w-4 h-4" />
+              <Link href="/products?sort_by=popular" className="btn-secondary !border-slate-700 !bg-slate-900/60 !px-7 !py-3 !text-base !text-slate-200 hover:!border-primary-500">
+                <Flame className="h-4 w-4 text-rose-400" /> Bestsellers
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-              {deals.slice(0, 5).map((product) => (
-                <ProductCard key={product.id} product={product} />
+            <div className="mt-10 flex flex-wrap gap-x-8 gap-y-3 text-sm text-slate-400">
+              <span><strong className="text-white">200+</strong> real listings</span>
+              <span><strong className="text-white">590+</strong> verified reviews</span>
+              <span><strong className="text-white">&lt;1s</strong> return decisions</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Brand marquee */}
+        {brands.length > 6 && (
+          <div className="relative border-t border-white/5 bg-white/[0.03] py-3">
+            <div className="flex w-max animate-marquee gap-10 whitespace-nowrap px-4 text-sm font-semibold uppercase tracking-widest text-slate-500">
+              {[...brands, ...brands].map((b, i) => (
+                <Link key={i} href={`/products?brand=${encodeURIComponent(b.name)}`} className="transition hover:text-slate-200">
+                  {b.name}
+                </Link>
               ))}
             </div>
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       {/* Categories */}
-      <section className="py-12">
-        <div className="container mx-auto px-4">
-          <h2 className="text-2xl font-bold mb-8">Shop by Category</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {[
-              { name: 'Clothing', icon: '👕', slug: 'clothing' },
-              { name: 'Electronics', icon: '📱', slug: 'electronics' },
-              { name: 'Home', icon: '🏠', slug: 'home' },
-              { name: 'Beauty', icon: '💄', slug: 'beauty' },
-              { name: 'Sports', icon: '⚽', slug: 'sports' },
-              { name: 'Toys', icon: '🎮', slug: 'toys' },
-            ].map((category) => (
-              <Link
-                key={category.slug}
-                href={`/products?category=${category.slug}`}
-                className="bg-white rounded-lg p-6 text-center border hover:shadow-md transition-shadow"
-              >
-                <span className="text-4xl mb-2 block">{category.icon}</span>
-                <span className="font-medium">{category.name}</span>
-              </Link>
-            ))}
-          </div>
+      <section className="container-page mt-12">
+        <h2 className="section-title">Shop by category</h2>
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+          {CATEGORY_TILES.map((cat) => (
+            <Link
+              key={cat.value}
+              href={`/products?category=${cat.value}`}
+              className="group card flex flex-col items-center gap-3 p-4 text-center transition-all hover:-translate-y-1 hover:shadow-card-hover"
+            >
+              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${cat.tint} text-white shadow-sm transition-transform group-hover:scale-110`}>
+                <cat.icon className="h-6 w-6" />
+              </span>
+              <span className="text-xs font-semibold text-slate-700 group-hover:text-primary-700">
+                {cat.label}
+              </span>
+            </Link>
+          ))}
         </div>
       </section>
 
-      {/* Return Policy Highlight */}
-      <section className="py-12 bg-primary-50">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-2xl font-bold mb-4">
-              AI-Powered Return Policy Engine
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Our intelligent return system uses machine learning to provide instant return decisions.
-              Good customers get auto-approved returns, while suspicious patterns are flagged for review.
-              This helps us offer better prices while protecting against fraud.
-            </p>
-            <div className="flex justify-center gap-8 text-sm">
-              <div>
-                <div className="text-3xl font-bold text-primary-600">30</div>
-                <div className="text-gray-600">Day Return Window</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold text-primary-600">Instant</div>
-                <div className="text-gray-600">Return Decisions</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold text-primary-600">Free</div>
-                <div className="text-gray-600">Return Pickup</div>
+      <Row
+        title="Deals of the day"
+        subtitle="Biggest live discounts across the catalog"
+        href="/products?sort_by=price_low"
+        products={deals}
+        loading={loading}
+        flame
+      />
+
+      {/* AI returns explainer */}
+      <section className="container-page mt-16">
+        <div className="card overflow-hidden !border-slate-800 bg-slate-950">
+          <div className="relative px-6 py-10 sm:px-10">
+            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary-600/20 blur-3xl" />
+            <div className="relative">
+              <span className="chip border border-emerald-400/30 bg-emerald-500/10 text-emerald-300">
+                <ShieldCheck className="h-3.5 w-3.5" /> The ShopZone difference
+              </span>
+              <h2 className="mt-4 font-display text-2xl font-bold text-white sm:text-3xl">
+                Returns without the black box
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm text-slate-400">
+                Behind every return is a live ML risk engine with per-decision explanations,
+                merchant feedback retraining and drift monitoring.
+              </p>
+              <div className="mt-8 grid gap-6 sm:grid-cols-3">
+                {AI_STEPS.map((step, i) => (
+                  <div key={step.title} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-500/15 text-primary-300">
+                        <step.icon className="h-5 w-5" />
+                      </span>
+                      <span className="text-xs font-bold text-slate-500">STEP {i + 1}</span>
+                    </div>
+                    <h3 className="mt-3 font-semibold text-white">{step.title}</h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-slate-400">{step.text}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
       </section>
+
+      <Row
+        title="Featured picks"
+        subtitle="Top-rated products our shoppers love"
+        href="/products?sort_by=popular"
+        products={featured}
+        loading={loading}
+      />
+
+      <Row
+        title="New arrivals"
+        subtitle="Fresh in the catalog this week"
+        href="/products?sort_by=newest"
+        products={newest}
+        loading={loading}
+      />
     </div>
   );
 }

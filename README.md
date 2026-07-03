@@ -14,7 +14,7 @@ account with 5 returns in 8 orders gets auto-denied — and both can see exactly
 
 | | URL | Login |
 |---|-----|-------|
-| 🛒 Storefront | https://shopzone-store.vercel.app | `demo.trusted@shopzone.com` or `demo.risky@shopzone.com` / `demo1234` |
+| 🛒 Storefront | https://shopzone-store-umber.vercel.app | `demo.trusted@shopzone.com` or `demo.risky@shopzone.com` / `demo1234` |
 | 📊 Merchant dashboard | https://shopzone-dashboard.vercel.app | `demo-merchant@shopzone.com` / `demo1234` |
 | 🛡 Engine API docs | https://ashutosh2002-shopzone-rpe.hf.space/docs | API key auth |
 | 🧾 Store API docs | https://ashutosh2002-shopzone-api.hf.space/docs | JWT auth |
